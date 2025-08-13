@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Define your custom color palette as CSS custom properties */
+:root {
+  --primary: #f4d03f; /* warm yellow */
+  --orange: #d35400; /* CTA/accent color */
+  --background: #ffffff;
+  --beige: #f5f5dc; /* light beige background */
+  --text: #171717; /* dark text on light bg */
+}
+
+/* Register with Tailwind - these become: bg-primary, text-primary, etc. */
+@theme {
+  --color-primary: var(--primary);
+  --color-orange: var(--orange);
+  --color-beige: var(--beige);
+  --color-text: var(--text);
+}
+
+/* Base styles */
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: var(--text);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+

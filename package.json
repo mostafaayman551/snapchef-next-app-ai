@@ -1,0 +1,48 @@
+{
+  "name": "snapchef",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^2.0.2",
+    "@prisma/client": "^6.14.0",
+    "@prisma/extension-accelerate": "^2.0.2",
+    "@reduxjs/toolkit": "^2.8.2",
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "ai": "^5.0.5",
+    "axios": "^1.11.0",
+    "bcryptjs": "^3.0.2",
+    "cookie": "^1.0.2",
+    "formidable": "^3.5.4",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.536.0",
+    "next": "15.4.5",
+    "next-themes": "^0.4.6",
+    "postcss": "^8.5.6",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-redux": "^9.2.0",
+    "react-toastify": "^11.0.5",
+    "redux-persist": "^6.0.0",
+    "tailwindcss": "^4.1.11",
+    "zod": "^4.0.14"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/axios": "^0.9.36",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.4.5",
+    "prisma": "^6.14.0",
+    "typescript": "^5"
+  }
+}
