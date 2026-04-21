@@ -21,7 +21,7 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["user", "recipes"],
+  whitelist: ["user"], // Only persist auth — recipes are fetched from DB on demand
 }
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

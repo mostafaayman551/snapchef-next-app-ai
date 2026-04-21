@@ -15,3 +15,9 @@ export interface SaveRecipeDto {
   ingredients: string[];
   steps: string[];
 }
+
+export interface UpdateRecipeDto {
+  title?: string;
+  ingredients?: string;
+  steps?: string;
+}

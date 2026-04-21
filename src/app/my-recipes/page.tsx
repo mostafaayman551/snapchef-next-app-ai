@@ -1,14 +1,32 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppDispatch, RootState } from "@/store/store";
 import { useDispatch, useSelector } from "react-redux";
-import { deleteRecipe, getAllRecipes } from "@/store/slices/recipeSlice";
+import { deleteRecipe, getAllRecipes, updateRecipe } from "@/store/slices/recipeSlice";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { Trash2, Search, ChefHat, UtensilsCrossed, ListOrdered, ChevronLeft, ChevronRight, BookOpen, Pencil, X } from "lucide-react";
 import { toast } from "react-toastify";
+import RecipeTextRenderer from "@/components/RecipeTextRenderer";
+
+const ITEMS_PER_PAGE = 6;
+
+// Moved outside component to avoid re-creation on every render
+const LoadingSpinner = () => (
+  <div className="flex flex-col items-center justify-center py-20 gap-4">
+    <div className="w-10 h-10 border-4 border-orange/30 border-t-orange rounded-full animate-spin" />
+    <p className="text-gray-500 text-sm">Loading your recipes...</p>
+  </div>
+);
 
 const MyRecipesPage = () => {
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editRecipe, setEditRecipe] = useState<null | { id: string; title: string; ingredients: string; steps: string }>(null);
+  const [editForm, setEditForm] = useState({ title: "", ingredients: "", steps: "" });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
   const dispatch = useDispatch<AppDispatch>();
   const { savedRecipes, isLoading, error } = useSelector(
     (state: RootState) => state.recipes
@@ -16,154 +34,377 @@ const MyRecipesPage = () => {
   const { user } = useSelector((state: RootState) => state.user);
 
   useEffect(() => {
-    if (user) {
-      dispatch(getAllRecipes());
-    }
+    if (user) dispatch(getAllRecipes());
   }, [dispatch, user]);
 
-  const deleteRecipeHandler = (id: string) => {
-    const confirm = window.confirm(
-      "Are you sure you want to delete this recipe?"
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const filteredRecipes = useMemo(() => {
+    if (!searchQuery.trim()) return savedRecipes;
+    const q = searchQuery.toLowerCase();
+    return savedRecipes.filter(
+      (r: any) =>
+        r.title?.toLowerCase().includes(q) ||
+        r.ingredients?.toLowerCase().includes(q) ||
+        r.steps?.toLowerCase().includes(q)
     );
-    if (!confirm) return;
-    setIsDeleting(true);
-    dispatch(deleteRecipe(id))
-      .unwrap()
-      .then(() => {
-        toast.success("Recipe deleted successfully");
-      })
-      .catch((err) => {
-        toast.error(err.message || "Failed to delete recipe");
-      })
-      .finally(() => {
-        setIsDeleting(false);
-      });
-  };
+  }, [savedRecipes, searchQuery]);
 
-  const LoadingSpinner = () => (
-    <div className="flex justify-center items-center h-full">
-      <svg
-        aria-hidden="true"
-        role="status"
-        className="w-8 h-8 text-gray-800 animate-spin"
-        viewBox="0 0 100 101"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-          fill="currentColor"
-          className="text-gray-300"
-        />
-        <path
-          d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-          fill="currentColor"
-        />
-      </svg>
-    </div>
+  const totalPages = Math.ceil(filteredRecipes.length / ITEMS_PER_PAGE);
+
+  const paginatedRecipes = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredRecipes.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredRecipes, currentPage]);
+
+  const deleteRecipeHandler = useCallback(
+    (id: string) => {
+      const confirmed = window.confirm("Are you sure you want to delete this recipe?");
+      if (!confirmed) return;
+      setDeletingId(id);
+      dispatch(deleteRecipe(id))
+        .unwrap()
+        .then(() => toast.success("Recipe deleted successfully"))
+        .catch((err) => toast.error(err || "Failed to delete recipe"))
+        .finally(() => setDeletingId(null));
+    },
+    [dispatch]
   );
 
-  const DeleteButtonSpinner = () => (
-    <svg
-      aria-hidden="true"
-      role="status"
-      className="inline w-4 h-4 text-red-500 animate-spin"
-      viewBox="0 0 100 101"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-        fill="#E5E7EB"
-      />
-      <path
-        d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
+  const openEditModal = useCallback((recipe: any) => {
+    setEditRecipe({ id: recipe.id, title: recipe.title, ingredients: recipe.ingredients, steps: recipe.steps });
+    setEditForm({ title: recipe.title, ingredients: recipe.ingredients, steps: recipe.steps });
+  }, []);
+
+  const closeEditModal = useCallback(() => {
+    setEditRecipe(null);
+  }, []);
+
+  const submitEdit = useCallback(async () => {
+    if (!editRecipe) return;
+    setIsSavingEdit(true);
+    try {
+      await dispatch(updateRecipe({ id: editRecipe.id, ...editForm })).unwrap();
+      toast.success("Recipe updated!");
+      closeEditModal();
+    } catch (err: any) {
+      toast.error(err || "Update failed");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }, [dispatch, editRecipe, editForm, closeEditModal]);
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }, []);
 
   const renderContent = () => {
-    if (isLoading) {
-      return <LoadingSpinner />;
-    }
+    if (isLoading) return <LoadingSpinner />;
 
     if (error) {
       return (
-        <p className="text-red-500 font-medium text-center text-lg">{error}</p>
+        <div className="text-center py-16">
+          <p className="text-red-500 font-medium text-lg">{error}</p>
+        </div>
       );
     }
 
     if (savedRecipes.length === 0) {
-      return <p className="text-center text-lg">No recipes found.</p>;
+      return (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <ChefHat size={48} className="text-orange/40" />
+          <p className="text-gray-500 text-lg font-medium">No recipes saved yet.</p>
+          <p className="text-gray-400 text-sm">Upload a food image on the home page to get started!</p>
+          <Link
+            href="/"
+            className="mt-2 bg-orange text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-orange/90 transition-colors"
+          >
+            Go Snap a Recipe
+          </Link>
+        </div>
+      );
+    }
+
+    if (filteredRecipes.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <Search size={40} className="text-gray-300" />
+          <p className="text-gray-500 font-medium">No recipes match &quot;{searchQuery}&quot;</p>
+          <p className="text-gray-400 text-sm">Try searching by dish name or ingredient</p>
+        </div>
+      );
     }
 
     return (
-      <ul className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {savedRecipes.map((recipe: any) => (
-          <li
-            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow duration-300 relative"
-            key={recipe.id}
-          >
-            <h2 className="text-2xl font-bold mb-2 text-orange">
-              {recipe.title}
-            </h2>
-            <div className="mb-4">
-              <h3 className="font-semibold text-lg mb-1">Ingredients</h3>
-              <p className="text-gray-700 whitespace-pre-line">
-                {recipe.ingredients}
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-1">Steps</h3> 
-              <p className="text-gray-700 whitespace-pre-line">
-                {recipe.steps}
-              </p>
-            </div>
+      <>
+        <ul className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {paginatedRecipes.map((recipe: any) => {
+            const isExpanded = expandedId === recipe.id;
+            const isDeleting = deletingId === recipe.id;
+            // Count ingredients lines for quick badge
+            const ingredientCount = recipe.ingredients
+              ?.split("\n")
+              .filter((l: string) => l.trim().startsWith("* ") || l.trim().startsWith("- ")).length || 0;
+
+            return (
+              <li
+                key={recipe.id}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 overflow-hidden flex flex-col"
+              >
+                {/* Card Header */}
+                <div className="bg-gradient-to-r from-orange/10 to-primary/20 px-5 py-4 border-b border-orange/10">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-lg font-bold text-gray-900 leading-snug line-clamp-2 flex-1">
+                      {recipe.title}
+                    </h2>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button
+                        className="p-2 rounded-xl bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer"
+                        onClick={() => openEditModal(recipe)}
+                        title="Edit recipe"
+                      >
+                        <Pencil size={15} className="text-blue-500" />
+                      </button>
+                      <button
+                        className="p-2 rounded-xl bg-red-50 hover:bg-red-100 transition-colors cursor-pointer flex-shrink-0"
+                        disabled={isDeleting}
+                        onClick={() => deleteRecipeHandler(recipe.id)}
+                        title="Delete recipe"
+                      >
+                        {isDeleting ? (
+                          <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 size={16} className="text-red-400 hover:text-red-600 transition-colors" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  {ingredientCount > 0 && (
+                    <span className="inline-block mt-2 text-xs bg-white/70 text-orange font-semibold px-2.5 py-1 rounded-full border border-orange/20">
+                      {ingredientCount} ingredients
+                    </span>
+                  )}
+                </div>
+
+                {/* Collapsible content */}
+                <div className="flex-1">
+                  {isExpanded ? (
+                    <div className="p-4 space-y-4">
+                      {/* Ingredients */}
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <UtensilsCrossed size={13} className="text-green-600" />
+                          <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Ingredients</span>
+                        </div>
+                        <div className="bg-green-50/60 rounded-lg p-3 max-h-48 overflow-y-auto">
+                          <RecipeTextRenderer text={recipe.ingredients} />
+                        </div>
+                      </div>
+
+                      {/* Steps */}
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <ListOrdered size={13} className="text-blue-600" />
+                          <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Steps</span>
+                        </div>
+                        <div className="bg-blue-50/60 rounded-lg p-3 max-h-48 overflow-y-auto">
+                          <RecipeTextRenderer text={recipe.steps} />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="px-5 py-3">
+                      <p className="text-gray-400 text-sm line-clamp-2">
+                        {recipe.ingredients?.replace(/\*\*/g, "").replace(/^\* /gm, "").trim()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Toggle Button */}
+                <button
+                  onClick={() => toggleExpand(recipe.id)}
+                  className="w-full py-2.5 px-5 text-sm font-semibold text-orange hover:bg-orange/5 transition-colors border-t border-gray-100 cursor-pointer"
+                >
+                  {isExpanded ? "Show Less ↑" : "View Full Recipe ↓"}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-10">
             <button
-              className="p-3 bg-red-50 rounded-b-xl absolute right-2 top-0 z-10 cursor-pointer flex justify-center items-center text-center"
-              disabled={isDeleting}
-              onClick={() => deleteRecipeHandler(recipe.id)}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="p-2 rounded-lg border border-gray-200 hover:border-orange disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
             >
-              {isDeleting ? (
-                <DeleteButtonSpinner />
-              ) : (
-                <Trash2
-                  size={18}
-                  className="text-red-500 hover:text-red-600 hover:transform hover:rotate-[360deg] ease-in-out duration-300 transition-all"
-                />
-              )}
+              <ChevronLeft size={18} className="text-gray-600" />
             </button>
-          </li>
-        ))}
-      </ul>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-9 h-9 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                  page === currentPage
+                    ? "bg-orange text-white shadow-sm"
+                    : "border border-gray-200 text-gray-600 hover:border-orange hover:text-orange"
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="p-2 rounded-lg border border-gray-200 hover:border-orange disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              <ChevronRight size={18} className="text-gray-600" />
+            </button>
+          </div>
+        )}
+      </>
     );
   };
 
   return (
-    <main className="bg-beige py-28 px-4 w-full">
-      <div className="container mx-auto w-full min-h-screen">
+    <main className="bg-beige min-h-screen py-28 px-4 w-full">
+      <div className="container mx-auto w-full max-w-6xl">
         {user ? (
           <>
-            <h1 className="text-4xl font-extrabold text-orange mb-8 text-center">
-              My Saved Recipes
-            </h1>
+            {/* Page Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <BookOpen size={20} className="text-orange" />
+                  <span className="text-xs font-semibold uppercase tracking-widest text-orange">Your Collection</span>
+                </div>
+                <h1 className="text-3xl font-extrabold text-gray-900">My Saved Recipes</h1>
+                {!isLoading && savedRecipes.length > 0 && (
+                  <p className="text-gray-500 text-sm mt-1">
+                    {filteredRecipes.length} of {savedRecipes.length} recipe{savedRecipes.length !== 1 ? "s" : ""}
+                    {searchQuery && ` matching "${searchQuery}"`}
+                  </p>
+                )}
+              </div>
+
+              {/* Search Bar */}
+              {!isLoading && savedRecipes.length > 0 && (
+                <div className="relative w-full sm:w-72">
+                  <Search
+                    size={16}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Search by dish or ingredient..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange/30 focus:border-orange transition-all"
+                  />
+                </div>
+              )}
+            </div>
+
             {renderContent()}
           </>
         ) : (
-          <div className="text-center">
-            <p className="text-xl">
-              You must be logged in to view your saved recipes
+          <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
+            <ChefHat size={56} className="text-orange/40" />
+            <p className="text-xl font-semibold text-gray-700">
+              You must be logged in to view your recipes
             </p>
             <Link
-              href={"/login"}
-              className="inline-block mt-4 hover:underline text-md text-orange underline-offset-2"
+              href="/login"
+              className="mt-2 inline-block bg-orange text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-orange/90 transition-colors"
             >
-              Go to Login Page
+              Go to Login
             </Link>
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editRecipe && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={closeEditModal}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900">Edit Recipe</h2>
+              <button
+                onClick={closeEditModal}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Title</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange/30 focus:border-orange transition-all"
+                  placeholder="Recipe title"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Ingredients</label>
+                <textarea
+                  value={editForm.ingredients}
+                  onChange={(e) => setEditForm((f) => ({ ...f, ingredients: e.target.value }))}
+                  rows={8}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange/30 focus:border-orange transition-all resize-y"
+                  placeholder="List ingredients..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Steps</label>
+                <textarea
+                  value={editForm.steps}
+                  onChange={(e) => setEditForm((f) => ({ ...f, steps: e.target.value }))}
+                  rows={10}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange/30 focus:border-orange transition-all resize-y"
+                  placeholder="List cooking steps..."
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={submitEdit}
+                disabled={isSavingEdit}
+                className="flex-1 bg-orange text-white py-2.5 rounded-xl font-semibold hover:bg-orange/90 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSavingEdit ? "Saving..." : "Save Changes"}
+              </button>
+              <button
+                onClick={closeEditModal}
+                className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl font-semibold hover:bg-gray-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 };

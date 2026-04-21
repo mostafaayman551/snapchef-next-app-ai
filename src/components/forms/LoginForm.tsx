@@ -12,7 +12,6 @@ interface LoginFormProps {
   >;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   loading: boolean;
-  error: string | null;
 }
 
 const LoginForm = ({
@@ -20,7 +19,6 @@ const LoginForm = ({
   setLoginUserForm,
   onSubmit,
   loading,
-  error,
 }: LoginFormProps) => {
   return (
     <form className="max-w-md space-y-4" onSubmit={onSubmit}>
@@ -61,7 +59,6 @@ const LoginForm = ({
           Register
         </Link>
       </p>
-      {error && <p className="text-red-500">{error}</p>}
     </form>
   );
 };

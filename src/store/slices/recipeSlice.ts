@@ -1,11 +1,21 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axios from "axios";
 
+interface Recipe {
+  id: string;
+  title: string;
+  ingredients: string;
+  steps: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+}
 interface RecipesState {
-  savedRecipes: string[];
+  savedRecipes: Recipe[];
   currentRecipe: string;
   isLoading: boolean;
   isSaving: boolean;
+  isUpdating: boolean;
   error: string | null;
 }
 const initialState: RecipesState = {
@@ -13,6 +23,7 @@ const initialState: RecipesState = {
   currentRecipe: "",
   isLoading: false,
   isSaving: false,
+  isUpdating: false,
   error: null,
 };
 type DeleteResponse = {
@@ -65,6 +76,23 @@ export const deleteRecipe = createAsyncThunk<
   }
 });
 
+export const updateRecipe = createAsyncThunk<
+  Recipe,
+  { id: string; title?: string; ingredients?: string; steps?: string },
+  { rejectValue: string }
+>("recipe/update", async ({ id, ...updates }, { rejectWithValue }) => {
+  try {
+    const response = await axios.put<{ message: string; recipe: Recipe }>(
+      `/api/recipes/update/${id}`,
+      updates
+    );
+    return response.data.recipe;
+  } catch (error: any) {
+    const message = error.response?.data?.message || "Update failed";
+    return rejectWithValue(message);
+  }
+});
+
 const recipeSlicer = createSlice({
   name: "recipes",
   initialState,
@@ -86,7 +114,7 @@ const recipeSlicer = createSlice({
         state.error = null;
       })
       .addCase(getAllRecipes.fulfilled, (state, action) => {
-        state.savedRecipes = action.payload as string[];
+        state.savedRecipes = action.payload as Recipe[];
         state.isLoading = false;
       })
       .addCase(getAllRecipes.rejected, (state, action) => {
@@ -99,12 +127,27 @@ const recipeSlicer = createSlice({
       })
       .addCase(deleteRecipe.fulfilled, (state, action) => {
         state.savedRecipes = state.savedRecipes.filter(
-          (recipe: any) => recipe.id !== action.payload
+          (recipe: any) => recipe.id !== action.payload.id
         );
         state.isLoading = false;
       })
       .addCase(deleteRecipe.rejected, (state, action) => {
         state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(updateRecipe.pending, (state) => {
+        state.isUpdating = true;
+        state.error = null;
+      })
+      .addCase(updateRecipe.fulfilled, (state, action) => {
+        state.isUpdating = false;
+        const idx = state.savedRecipes.findIndex(
+          (r: any) => r.id === action.payload.id
+        );
+        if (idx !== -1) state.savedRecipes[idx] = action.payload;
+      })
+      .addCase(updateRecipe.rejected, (state, action) => {
+        state.isUpdating = false;
         state.error = action.payload as string;
       });
   },

@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
           content: [
             {
               type: "text",
-              text: "Analyze this image. If it shows food, a meal, ingredients, or anything cookable, provide a detailed recipe using EXACTLY this format: \nTITLE:\n [Recipe name here] \nINGREDIENTS:\n [List ingredients with quantities] \nSTEPS:\n [List numbered cooking steps] If the image is not food-related, simply describe what you see and suggest uploading a food image instead.",
+              text: "Analyze this image. If it shows food, a meal, ingredients, or anything cookable, provide a detailed recipe using EXACTLY this format:\nTITLE:\n [Recipe name here]\nCOOKING_TIME:\n [Estimated total time, e.g. '30 minutes', '1 hour 15 minutes'. Include prep and cook time.]\nINGREDIENTS:\n [List ingredients with quantities]\nSTEPS:\n [List numbered cooking steps]\nIf the image is not food-related, simply describe what you see and suggest uploading a food image instead.",
             },
             {
               type: "image",
@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ text }, { status: 200 });
   } catch (error) {
+    console.error("AI route error:", error);
     return NextResponse.json(
       { message: "internal server error" },
       { status: 500 }

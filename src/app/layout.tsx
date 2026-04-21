@@ -19,8 +19,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={alegreya.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={alegreya.className} suppressHydrationWarning>
         <ClientProviders>
           <Header />
           {children}

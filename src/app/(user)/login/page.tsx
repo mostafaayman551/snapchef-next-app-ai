@@ -14,11 +14,9 @@ const LoginPage = () => {
     password: "",
   });
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     try {
       const { email, password } = loginUserForm;
       if (!email || !password) {
@@ -29,8 +27,7 @@ const LoginPage = () => {
       toast.success(response.message);
       router.push("/");
     } catch (error: any) {
-      toast.error(error|| "Something went wrong");
-      setError(error);
+      toast.error(error || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -43,7 +40,6 @@ const LoginPage = () => {
           loginUserForm={loginUserForm}
           onSubmit={onSubmit}
           loading={loading}
-          error={error}
           setLoginUserForm={setLoginUserForm}
         />
       </div>
