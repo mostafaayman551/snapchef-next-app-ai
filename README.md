@@ -35,5 +35,5 @@ SnapChef is a web application that uses AI to generate recipes from a single pho
 8. Edit and update recipes.
 9. Delete recipes.
 
-### [Preview Demo](https://snapchef-next-app-ai-py28.vercel.app/)
+### [Preview Demo](https://snapchef-next-app-ai.vercel.app/)
 
